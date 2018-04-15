@@ -1,5 +1,8 @@
 #include<iostream>
 #include<vector>
+#include<math.h>
+#include<algorithm>
+#include<stdio.h>
 using namespace std;
 const double K_EPS_DICHOTOMY = 1e-1;
 const double K_EPS_MUELLER = 5e-4;
@@ -39,7 +42,8 @@ int main() {
 	for (int i = 0; i < roots_amount; i++)
 		MuellersMethod(roots[i]);
 	Verification(roots);
-	return EXIT_SUCCESS;
+	PrintRoots(roots);
+	return 0;
 }
 
 segment::segment() {
@@ -65,7 +69,7 @@ double f(double x) {
 void Dichotomy(root_with_borders &root) {
 	while (root.borders.end - root.borders.start >= K_EPS_DICHOTOMY / 2) {
 		if (f(root.borders.end)*f(root.borders.start) > 0) {
-			cerr << "Ошибка в методе дихотомии";
+			cerr << "Ошибка в методе дихотомии" << endl;
 			exit(DICHOTOMY_ERROR);
 		}
 		double middle = (root.borders.end + root.borders.start) / 2;
@@ -102,7 +106,7 @@ void MuellersMethod(root_with_borders &root) {
 			if (f(b)*f(x) < 0)
 				root.borders.start = x;
 			else {
-				cerr << "Ошибка в методе парабол";
+				cerr << "Ошибка в методе парабол" << endl;
 				exit(MUELLER_ERROR);
 			}
 	}
@@ -111,10 +115,10 @@ void MuellersMethod(root_with_borders &root) {
 void Verification(vector<root_with_borders>&roots) {
 	for (int i = 0; i<(int)roots.size(); i++)
 		if (fabs(f(roots[i].root)) > K_EPS_MUELLER) {
-			cerr << "Были найдены неверные значения корней уравнения";
+			cerr << "Были найдены неверные значения корней уравнения" << endl;
 			exit(VERIFICATION_ERROR);
 		}
-	cout << "Были найдены верные значения корней уравнения";
+	cout << "Были найдены верные значения корней уравнения" << endl ;
 }
 
 void PrintRoots(vector<root_with_borders>&roots) {
