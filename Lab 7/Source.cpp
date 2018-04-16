@@ -1,3 +1,10 @@
+/**
+Лабораторная работа №7 по дисциплине "Вычислительные методы"
+@name Main
+@memo Численное интегрирование.
+@author (c) 2017 В. В. Зелюков
+*/
+
 #include<iostream>
 #include<vector>
 #include<math.h>
