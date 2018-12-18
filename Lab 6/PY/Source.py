@@ -1,49 +1,129 @@
 import numpy as np
+import matplotlib.pyplot as plt
+
+
+class Point:
+    x: float
+    f_x: float
+
+    def __init__(self, x, f_x):
+        self.x = x
+        self.f_x = f_x
+
+
+class BoundCondition:
+    m_first: float
+    m_second: float
+    sum: float
+
+    def __init__(self, params):
+        self.m_first = params[0]
+        self.m_second = params[1]
+        self.sum = params[2]
 
 
 def input_values():
     print("Input amount of points:")
     points_amount = int(input())
     print("\nInput x and function values of x in each point:\n")
-    instant_values = []
+    points = []
     for i in range(points_amount):
-        x, f_x = (float(i) for i in input().split())
-        instant_values.append((x, f_x))
-    return instant_values
+        x, f_x = [float(i) for i in input().split()]
+        points.append(Point(x, f_x))
+    return points
 
 
-def make_matrix(instant_values):
-    splinesAmount = len(instant_values)
-    matrix = [[0] * (splinesAmount * 3)] * (splinesAmount * 3)
-    free_terms = [0] * (splinesAmount * 3)
-    for i in range(1, splinesAmount):
-        delta_x = instant_values[i][0] - instant_values[i - 1][0]
-        delta_f = instant_values[i][1] - instant_values[i - 1][1]
-        matrix[i][i] = delta_x
-        matrix[i][i + splinesAmount] = -delta_x ** 2 / 2
-        matrix[i][i + splinesAmount * 2] = delta_x ** 3 / 6
-        free_terms[i] = delta_f
-        if i != 1:
-            matrix[i + splinesAmount][i - 1] = 1
-            matrix[i + splinesAmount][i] = -1
-            matrix[i + splinesAmount][i + splinesAmount] = delta_x
-            matrix[i + splinesAmount][i + splinesAmount * 2] = -delta_x ** 2 / 2
-            matrix[i + splinesAmount * 2][i + splinesAmount - 1] = 1
-            matrix[i + splinesAmount * 2][i + splinesAmount] = -1
-            matrix[i + splinesAmount * 2][i + splinesAmount * 2] = delta_x
-        else:
-            m0, m1, alpha = (float(j) for j in input().split())
-            m4, m5, beta = (float(j) for j in input().split())
-            matrix[i + splinesAmount][splinesAmount + 1] = m0 + m1
-            free_terms[i + splinesAmount] = alpha
-            matrix[i + splinesAmount * 2][splinesAmount * 2] = m4 + m5
-            free_terms[i + splinesAmount * 2] = beta
-    return matrix, free_terms
+def input_border_statements():
+    left_condition = BoundCondition(
+        [float(i) for i in input("Input coefficients from left border statement:\n").split()]
+    )
+    right_condition = BoundCondition(
+        [float(i) for i in input("\nInput coefficients from right border statement:\n").split()]
+    )
+    return left_condition, right_condition
 
 
-instant_values = input_values()
-matrix, free_terms = make_matrix(instant_values)
-answer = np.linalg.solve(matrix, free_terms)
-print(answer)
+def make_system_of_equations(points, splines_amount, left_condition, right_condition):
+    # Make first (special) equation
+    system_of_equations = np.zeros(shape=(splines_amount, splines_amount), dtype=float)
+    new_free_terms = np.zeros(shape=splines_amount, dtype=float)
+    delta_x = points[1].x - points[0].x
+    delta_x_next = points[2].x - points[1].x
+    system_of_equations[0][0] = 2 * (
+            delta_x + delta_x_next) - delta_x * left_condition.m_second / left_condition.m_first
+    system_of_equations[0][1] = delta_x_next
+    new_free_terms[0] = -delta_x * left_condition.sum / left_condition.m_first
 
-# S[i](x)=a[i]+b[i](x-x[i])+c[i](x-x[i])^2/2+d[i](x-x[i])^3/6
+    # Make from 2 to n-1 ordinary equations
+    for i in range(1, splines_amount - 1):
+        delta_x = points[i + 1].x - points[i].x
+        delta_x_next = points[i + 2].x - points[i + 1].x
+        delta_f_x = points[i + 1].f_x - points[i].f_x
+        delta_f_x_next = points[i + 2].f_x - points[i + 1].f_x
+        system_of_equations[i][i - 1] = delta_x
+        system_of_equations[i][i] = 2 * (delta_x + delta_x_next)
+        system_of_equations[i][i + 1] = delta_x_next
+        new_free_terms[i] = 6 * (delta_f_x_next / delta_x_next - delta_f_x / delta_x)
+
+    # Make last (special) equation
+    system_of_equations[splines_amount - 1][splines_amount - 2] = right_condition.m_first
+    system_of_equations[splines_amount - 1][splines_amount - 1] = right_condition.m_second
+    new_free_terms[splines_amount - 1] = right_condition.sum
+    return system_of_equations, new_free_terms
+
+
+def main():
+    points = input_values()
+    left_condition, right_condition = input_border_statements()
+    points_amount = len(points)
+    splines_amount = points_amount - 1
+    matrix, free_terms = make_system_of_equations(points, splines_amount, left_condition, right_condition)
+    c = np.linalg.solve(matrix, free_terms)
+    a = []
+    b = []
+    d = []
+    delta_x = points[1].x - points[0].x
+    delta_f_x = points[1].f_x - points[0].f_x
+    a.append(points[1].f_x)
+    b.append(delta_f_x / (points[1].x - points[0].x) + delta_x / 6 * (
+            (2 - left_condition.m_second / left_condition.m_first) * c[0] +
+            left_condition.sum / left_condition.m_first))
+    d.append(
+        (1 + left_condition.m_second / left_condition.m_first) * c[0] -
+        left_condition.sum / left_condition.m_first)
+    for i in range(1, splines_amount):
+        delta_x = points[i + 1].x - points[i].x
+        delta_f_x = points[i].f_x - points[i - 1].f_x
+        delta_f_x_next = points[i + 1].f_x - points[i].f_x
+        a.append(points[i + 1].f_x)
+        d.append((c[i] - c[i - 1]) / delta_x)
+        b.append((delta_f_x_next - delta_f_x) / delta_x + delta_x * c[i] / 2 - delta_x**2 * d[i] / 6)
+    for i in range(splines_amount):
+        x_axe = np.arange(points[i].x, points[i + 1].x, 1e-6)
+        y_seq = map(lambda x: a[i] + b[i] * (x - points[i].x) + c[i] / 2 * ((x - points[i].x) ** 2) + d[i] / 6 * (
+                (x - points[i].x) ** 3), x_axe)
+        y_axe = np.fromiter(y_seq, dtype=np.float)
+        plt.plot(x_axe, y_axe)
+    plt.show()
+
+
+main()
+# print(x_axe,y_axe)
+# 0.2 1.2214
+# 0.26 1.2765
+# 0.28 1.3071
+# 0.31 1.3456
+# 0.32 1.3775
+# 0.38 1.4568
+# 2 0.5 1.8765
+# 0.3 2 3.4567
+
+
+# 0.1 1.1052
+# 0.15 1.1618
+# 0.19 1.2092
+# 0.25 1.2840
+# 0.28 1.3231
+# 0.30 0.3499
+# 2 1 3.3722
+# 0.5 2 3.3614
